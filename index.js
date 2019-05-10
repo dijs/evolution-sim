@@ -12,45 +12,51 @@ const foodDistance = 400;
 
 let day = 1;
 
-function randomBorder() {
+function randomBorder(speed) {
   const r = Math.floor(Math.random() * 4);
   const x = Math.random() * size;
   const y = Math.random() * size;
   switch (r) {
     case 0:
-      return { x, y: 0 };
+      return { x, y: 0, vx: 0, vy: speed };
     case 1:
-      return { x, y: size };
+      return { x, y: size, vx: 0, vy: -speed };
     case 2:
-      return { x: 0, y };
+      return { x: 0, y, vx: speed, vy: 0 };
     case 3:
-      return { x: size, y };
+      return { x: size, y, vx: -speed, vy: 0 };
   }
 }
 
+function randNear(x, k) {
+  return x + (Math.random() * k - k / 2);
+}
+
 function createBlob() {
+  const speed = randNear(3, 2);
   return {
-    ...randomBorder(),
-    vx: 0,
-    vy: 0,
-    turn: 0,
-    size: 16,
-    speed: 2,
-    sense: 64,
+    ...randomBorder(speed),
+    turn: Date.now(),
+    size: randNear(16, 4),
+    speed,
+    sense: randNear(32, 24),
     ate: 0,
     dead: false
   };
 }
 
 function handleEndOfDay(blob) {
-  if (blob.ate < 1) blob.dead = true;
-  Object.assign(blob, randomBorder(), { vx: 0, vy: 0, turn: 0, ate: 0 });
+  Object.assign(blob, randomBorder(blob.speed), {
+    turn: Date.now(),
+    ate: 0,
+    dead: blob.ate < 1
+  });
 }
 
 function createFood() {
   return {
-    x: size / 2 + (Math.random() * foodDistance - foodDistance / 2),
-    y: size / 2 + (Math.random() * foodDistance - foodDistance / 2),
+    x: randNear(size / 2, foodDistance),
+    y: randNear(size / 2, foodDistance),
     eaten: false
   };
 }
@@ -123,7 +129,8 @@ function updateBlob(blob) {
     blob.turn = Date.now();
   }
   const foodSensed = foods.find(
-    food => !food.eaten && distance(blob, food) < blob.size + blob.sense
+    food =>
+      !food.eaten && distance(blob, food) < blob.size + blob.sense + foodSize
   );
   if (foodSensed) {
     const dx = foodSensed.x - blob.x;
