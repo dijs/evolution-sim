@@ -41,8 +41,8 @@ const foods = [
   createFood()
 ];
 
-function contains(circle, pt) {
-  return Math.hypot(circle.x - pt.x, circle.y - pt.y) < circle.size;
+function distance(circle, pt) {
+  return Math.hypot(circle.x - pt.x, circle.y - pt.y);
 }
 
 function circle(x, y, r, c) {
@@ -86,8 +86,19 @@ function updateBlob(blob) {
     blob.vy = randomDirection() * blob.speed;
     blob.turn = Date.now();
   }
-  const foodFound = foods.find(food => contains(blob, food));
-  if (foodFound && !foodFound.eaten) {
+  const foodSensed = foods.find(
+    food => !food.eaten && distance(blob, food) < blob.size + blob.sense
+  );
+  if (foodSensed) {
+    const dx = foodSensed.x - blob.x;
+    const dy = foodSensed.y - blob.y;
+    blob.vx = (dx / Math.abs(dx)) * blob.speed;
+    blob.vy = (dy / Math.abs(dy)) * blob.speed;
+  }
+  const foodFound = foods.find(
+    food => !food.eaten && distance(blob, food) < blob.size
+  );
+  if (foodFound) {
     foodFound.eaten = true;
     blob.ate++;
   }
