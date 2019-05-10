@@ -33,11 +33,11 @@ function randNear(x, k) {
 }
 
 function createBlob() {
-  const speed = randNear(3, 2);
+  const speed = randNear(4, 2);
   return {
     ...randomBorder(speed),
     turn: Date.now(),
-    size: randNear(16, 4),
+    size: randNear(16, 8),
     speed,
     sense: randNear(32, 24),
     ate: 0,
@@ -45,12 +45,24 @@ function createBlob() {
   };
 }
 
+function mutate(blob) {
+  blob.speed += randNear(0, 3);
+  blob.sense += randNear(0, 3);
+  blob.size += randNear(0, 3);
+}
+
 function handleEndOfDay(blob) {
+  const populate = blob.ate > 1;
   Object.assign(blob, randomBorder(blob.speed), {
     turn: Date.now(),
     ate: 0,
     dead: blob.ate < 1
   });
+  if (populate) {
+    const offspring = { ...blob };
+    mutate(offspring);
+    blobs.push(offspring);
+  }
 }
 
 function createFood() {
