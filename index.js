@@ -7,25 +7,50 @@ const maxSpeed = 5;
 const maxSize = 64;
 const maxSense = 64;
 const foodSize = 16;
+const dayLength = 5000;
+const foodDistance = 400;
+
+let day = 1;
+
+function randomBorder() {
+  const r = Math.floor(Math.random() * 4);
+  const x = Math.random() * size;
+  const y = Math.random() * size;
+  switch (r) {
+    case 0:
+      return { x, y: 0 };
+    case 1:
+      return { x, y: size };
+    case 2:
+      return { x: 0, y };
+    case 3:
+      return { x: size, y };
+  }
+}
 
 function createBlob() {
   return {
-    x: Math.random() * size,
-    y: Math.random() * size,
+    ...randomBorder(),
     vx: 0,
     vy: 0,
     turn: 0,
     size: 16,
     speed: 2,
-    sense: 32,
-    ate: 0
+    sense: 64,
+    ate: 0,
+    dead: false
   };
+}
+
+function handleEndOfDay(blob) {
+  if (blob.ate < 1) blob.dead = true;
+  Object.assign(blob, randomBorder(), { vx: 0, vy: 0, turn: 0, ate: 0 });
 }
 
 function createFood() {
   return {
-    x: Math.random() * size,
-    y: Math.random() * size,
+    x: size / 2 + (Math.random() * foodDistance - foodDistance / 2),
+    y: size / 2 + (Math.random() * foodDistance - foodDistance / 2),
     eaten: false
   };
 }
@@ -33,6 +58,9 @@ function createFood() {
 const blobs = [createBlob(), createBlob(), createBlob()];
 
 const foods = [
+  createFood(),
+  createFood(),
+  createFood(),
   createFood(),
   createFood(),
   createFood(),
@@ -52,13 +80,17 @@ function circle(x, y, r, c) {
   ctx.fill();
 }
 
-function renderBlob({ x, y, speed, size, sense }) {
+function renderBlob({ x, y, speed, size, sense, dead, ate }) {
+  if (dead) return;
   const r = (speed / maxSpeed) * 128;
   const g = (size / maxSize) * 128;
   const b = (sense / maxSense) * 128;
   const k = 6;
   circle(x, y, size + sense, `rgb(${r * k}, ${g * k}, ${b * k})`);
   circle(x, y, size, `rgb(${r}, ${g}, ${b})`);
+  ctx.fillStyle = '#fff';
+  ctx.font = '14px monospace';
+  ctx.fillText('' + ate, x, y);
 }
 
 function renderFood({ x, y, eaten }) {
@@ -69,6 +101,9 @@ function renderFood({ x, y, eaten }) {
 function render() {
   ctx.fillStyle = '#ddd';
   ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = '#333';
+  ctx.font = '14px monospace';
+  ctx.fillText('Day ' + day, 5, 15);
   foods.forEach(renderFood);
   blobs.forEach(renderBlob);
 }
@@ -79,6 +114,7 @@ const randomDirection = () => {
 };
 
 function updateBlob(blob) {
+  if (blob.dead) return;
   blob.x = Math.max(0, Math.min(size, blob.x + blob.vx));
   blob.y = Math.max(0, Math.min(size, blob.y + blob.vy));
   if (Date.now() - blob.turn > 1000) {
@@ -112,3 +148,18 @@ setInterval(() => {
   update();
   render();
 }, 1000 / 30);
+
+function endOfDay() {
+  day++;
+  for (let i = 0; i < foods.length; i++) {
+    foods[i] = createFood();
+  }
+  blobs.forEach(handleEndOfDay);
+  if (blobs.filter(({ dead }) => !dead).length) {
+    setTimeout(endOfDay, dayLength);
+  } else {
+    console.log('Sim Over');
+  }
+}
+
+setTimeout(endOfDay, dayLength);
