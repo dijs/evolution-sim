@@ -3,8 +3,8 @@ const size = 600;
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-const maxSpeed = 5;
-const maxSize = 64;
+const maxSpeed = 8;
+const maxSize = 32;
 const maxSense = 64;
 const foodSize = 16;
 const dayLength = 5000;
@@ -52,12 +52,17 @@ function mutate(blob) {
 }
 
 function handleEndOfDay(blob) {
+  if (blob.dead) return;
   const populate = blob.ate > 1;
+  const dead = blob.ate < 1;
   Object.assign(blob, randomBorder(blob.speed), {
     turn: Date.now(),
     ate: 0,
-    dead: blob.ate < 1
+    dead
   });
+  if (dead) {
+    blob.died = Date.now();
+  }
   if (populate) {
     const offspring = { ...blob };
     mutate(offspring);
@@ -73,7 +78,7 @@ function createFood() {
   };
 }
 
-const blobs = [createBlob(), createBlob(), createBlob()];
+const blobs = [createBlob(), createBlob(), createBlob(), createBlob()];
 
 const foods = [
   createFood(),
@@ -178,6 +183,8 @@ function endOfDay() {
     setTimeout(endOfDay, dayLength);
   } else {
     console.log('Sim Over');
+    const sorted = blobs.sort((x, y) => x.died - y.died);
+    console.log('Last surviving', sorted[sorted.length - 1]);
   }
 }
 
