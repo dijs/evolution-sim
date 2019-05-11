@@ -9,6 +9,7 @@ const maxSense = 64;
 const foodSize = 16;
 const dayLength = 7000;
 const foodDistance = size - 100;
+const edibleSizeDelta = 0.3;
 
 let day = 1;
 
@@ -36,7 +37,7 @@ function createBlob() {
   const speed = randNear(4, 2);
   return {
     ...randomBorder(speed),
-    size: randNear(16, 16),
+    size: randNear(16, 24),
     speed,
     sense: randNear(32, 24),
     energy: 0,
@@ -47,7 +48,7 @@ function createBlob() {
 
 function mutate(blob) {
   blob.speed += randNear(0, 2);
-  blob.sense += randNear(0, 8);
+  blob.sense += randNear(0, 16);
   blob.size += randNear(0, 4);
 }
 
@@ -82,7 +83,7 @@ const blobs = Array(16)
   .fill(0)
   .map(createBlob);
 
-const foods = Array(7)
+const foods = Array(10)
   .fill(0)
   .map(createFood);
 
@@ -129,13 +130,21 @@ const randomDirection = () => {
   return r < 0.33 ? -1 : r < 0.66 ? 0 : 1;
 };
 
-function updateBlob(blob) {
+function moveTowards(blob, pt) {
+  const dx = pt.x - blob.x;
+  const dy = pt.y - blob.y;
+  const dist = Math.hypot(dx, dy);
+  blob.vx = (dx / dist) * blob.speed;
+  blob.vy = (dy / dist) * blob.speed;
+}
+
+function updateBlob(blob, index) {
   if (blob.dead) return;
-  blob.energy += 4;
-  if (blob.energy >= blob.speed) {
+  const cost = blob.size ** 3 * blob.speed ** 2 + blob.sense;
+  if (blob.energy >= cost) {
     blob.x = Math.max(0, Math.min(size, blob.x + blob.vx));
     blob.y = Math.max(0, Math.min(size, blob.y + blob.vy));
-    blob.energy -= blob.speed;
+    blob.energy -= cost;
   }
   blob.vx = Math.max(
     -blob.speed,
@@ -163,13 +172,7 @@ function updateBlob(blob) {
     food =>
       !food.eaten && distance(blob, food) < blob.size + blob.sense + foodSize
   );
-  if (foodSensed) {
-    const dx = foodSensed.x - blob.x;
-    const dy = foodSensed.y - blob.y;
-    const dist = Math.hypot(dx, dy);
-    blob.vx = (dx / dist) * blob.speed;
-    blob.vy = (dy / dist) * blob.speed;
-  }
+  if (foodSensed) moveTowards(blob, foodSensed);
   const foodFound = foods.find(
     food => !food.eaten && distance(blob, food) < blob.size
   );
@@ -177,6 +180,29 @@ function updateBlob(blob) {
     foodFound.eaten = true;
     blob.ate++;
   }
+  // find creature to eat
+  const catFound = blobs.find(
+    (b, i) =>
+      index !== i &&
+      distance(blob, b) < blob.size &&
+      b.size < blob.size * edibleSizeDelta
+  );
+
+  const closeCatFound = blobs.find(
+    (b, i) =>
+      index !== i &&
+      distance(blob, b) < blob.size + blob.sense &&
+      b.size < blob.size * edibleSizeDelta
+  );
+
+  if (closeCatFound) moveTowards(blob, closeCatFound);
+
+  if (catFound) {
+    blob.ate++;
+    catFound.dead = true;
+  }
+
+  blob.energy += 40000;
 }
 
 function update() {
