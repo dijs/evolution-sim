@@ -7,8 +7,8 @@ const maxSpeed = 8;
 const maxSize = 32;
 const maxSense = 64;
 const foodSize = 16;
-const dayLength = 5000;
-const foodDistance = 400;
+const dayLength = 7000;
+const foodDistance = size - 100;
 
 let day = 1;
 
@@ -36,19 +36,19 @@ function createBlob() {
   const speed = randNear(4, 2);
   return {
     ...randomBorder(speed),
-    turn: Date.now(),
-    size: randNear(16, 8),
+    size: randNear(16, 16),
     speed,
     sense: randNear(32, 24),
+    energy: 0,
     ate: 0,
     dead: false
   };
 }
 
 function mutate(blob) {
-  blob.speed += randNear(0, 3);
-  blob.sense += randNear(0, 3);
-  blob.size += randNear(0, 3);
+  blob.speed += randNear(0, 2);
+  blob.sense += randNear(0, 8);
+  blob.size += randNear(0, 4);
 }
 
 function handleEndOfDay(blob) {
@@ -56,8 +56,8 @@ function handleEndOfDay(blob) {
   const populate = blob.ate > 1;
   const dead = blob.ate < 1;
   Object.assign(blob, randomBorder(blob.speed), {
-    turn: Date.now(),
     ate: 0,
+    energy: 0,
     dead
   });
   if (dead) {
@@ -78,19 +78,13 @@ function createFood() {
   };
 }
 
-const blobs = [createBlob(), createBlob(), createBlob(), createBlob()];
+const blobs = Array(16)
+  .fill(0)
+  .map(createBlob);
 
-const foods = [
-  createFood(),
-  createFood(),
-  createFood(),
-  createFood(),
-  createFood(),
-  createFood(),
-  createFood(),
-  createFood(),
-  createFood()
-];
+const foods = Array(7)
+  .fill(0)
+  .map(createFood);
 
 function distance(circle, pt) {
   return Math.hypot(circle.x - pt.x, circle.y - pt.y);
@@ -103,17 +97,16 @@ function circle(x, y, r, c) {
   ctx.fill();
 }
 
-function renderBlob({ x, y, speed, size, sense, dead, ate }) {
+function renderBlob({ x, y, speed, size, sense, dead, ate, energy }) {
   if (dead) return;
   const r = (speed / maxSpeed) * 128;
   const g = (size / maxSize) * 128;
   const b = (sense / maxSense) * 128;
-  const k = 6;
-  circle(x, y, size + sense, `rgb(${r * k}, ${g * k}, ${b * k})`);
+  circle(x, y, size + sense, `rgba(${r}, ${g}, ${b}, 0.2)`);
   circle(x, y, size, `rgb(${r}, ${g}, ${b})`);
   ctx.fillStyle = '#fff';
   ctx.font = '14px monospace';
-  ctx.fillText('' + ate, x, y);
+  // ctx.fillText('' + energy, x, y);
 }
 
 function renderFood({ x, y, eaten }) {
@@ -138,13 +131,34 @@ const randomDirection = () => {
 
 function updateBlob(blob) {
   if (blob.dead) return;
-  blob.x = Math.max(0, Math.min(size, blob.x + blob.vx));
-  blob.y = Math.max(0, Math.min(size, blob.y + blob.vy));
-  if (Date.now() - blob.turn > 1000) {
-    blob.vx = randomDirection() * blob.speed;
-    blob.vy = randomDirection() * blob.speed;
-    blob.turn = Date.now();
+  blob.energy += 4;
+  if (blob.energy >= blob.speed) {
+    blob.x = Math.max(0, Math.min(size, blob.x + blob.vx));
+    blob.y = Math.max(0, Math.min(size, blob.y + blob.vy));
+    blob.energy -= blob.speed;
   }
+  blob.vx = Math.max(
+    -blob.speed,
+    Math.min(blob.speed, blob.vx + (Math.random() - 0.5))
+  );
+  blob.vy = Math.max(
+    -blob.speed,
+    Math.min(blob.speed, blob.vy + (Math.random() - 0.5))
+  );
+  // if touching a border, bounce away
+  if (blob.y + blob.size + blob.sense >= size) {
+    blob.vy -= blob.speed;
+  }
+  if (blob.y - blob.size - blob.sense < blob.size) {
+    blob.vy += blob.speed;
+  }
+  if (blob.x + blob.size + blob.sense >= size) {
+    blob.vx -= blob.speed;
+  }
+  if (blob.x - blob.size - blob.sense < blob.size) {
+    blob.vx += blob.speed;
+  }
+  // move towards food when in sensing range
   const foodSensed = foods.find(
     food =>
       !food.eaten && distance(blob, food) < blob.size + blob.sense + foodSize
@@ -152,8 +166,9 @@ function updateBlob(blob) {
   if (foodSensed) {
     const dx = foodSensed.x - blob.x;
     const dy = foodSensed.y - blob.y;
-    blob.vx = (dx / Math.abs(dx)) * blob.speed;
-    blob.vy = (dy / Math.abs(dy)) * blob.speed;
+    const dist = Math.hypot(dx, dy);
+    blob.vx = (dx / dist) * blob.speed;
+    blob.vy = (dy / dist) * blob.speed;
   }
   const foodFound = foods.find(
     food => !food.eaten && distance(blob, food) < blob.size
